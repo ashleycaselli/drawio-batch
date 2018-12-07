@@ -3,19 +3,20 @@
 'use strict'
 
 var fs = require('fs')
+var mkdirp = require('mkdirp')
 
 const program = require('commander')
 
-function parseQuality (val) {
-  var number = parseInt(val)
+function parseQuality(val) {
+  let number = parseInt(val)
   if (isNaN(number) || number <= 0 || number > 100) {
     throw new Error('Invalid quality value given')
   }
   return number
 }
 
-function parseScale (val) {
-  var number = parseFloat(val)
+function parseScale(val) {
+  let number = parseFloat(val)
   if (isNaN(number) || number <= 0) {
     throw new Error('Invalid scale value given')
   }
@@ -24,6 +25,7 @@ function parseScale (val) {
 
 var input = null
 var output = null
+const outputDirectory = "img/"
 
 program
   .name('drawio-batch')
@@ -37,16 +39,25 @@ program
     'scales the output file size for pixel-based output formats', parseScale, 1.0)
   .option('-d --diagramId <diagramId>',
     'selects a specific diagram', parseInt, 0)
-  .arguments('<input> <output>')
-  .action(function (newInput, newOutput) {
+  .arguments('<input> <outputFormat> [<fileName>]')
+  .action(function (newInput, newOutput, newFileName) {
+    mkdirp(outputDirectory, (err) => {
+        if (err) throw err
+    });
     input = fs.readFileSync(newInput, 'utf-8')
-    output = newOutput
+    const fileNameRegex = /.*\/(.*)\..*/gm
+    let fileName = fileNameRegex.exec(newInput)
+    if(newFileName !== undefined) {
+      output = `${outputDirectory}${newFileName}.${newOutput}`
+    } else {
+      output = `${outputDirectory}${fileName[1]}.${newOutput}`
+    }
   })
   .parse(process.argv)
 
 const puppeteer = require('puppeteer')
 
-function sleep (ms) {
+function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
@@ -77,6 +88,7 @@ function sleep (ms) {
     } else {
       await page.screenshot({path: output, clip: bounds, quality: process.quality})
     }
+    console.log(`[GENERATED] ${output}`)
   } catch (error) {
     console.log(error)
     process.exit(1)
